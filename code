@@ -1,0 +1,547 @@
+import random
+import spacy
+from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+import tkinter.font as tkfont
+import matplotlib.pyplot as plt
+import json
+
+# Load spaCy's pre-trained model for NLP tasks
+nlp = spacy.load("en_core_web_sm")
+
+# Load the emotion detection model
+tokenizer = AutoTokenizer.from_pretrained("SamLowe/roberta-base-go_emotions")
+model = AutoModelForSequenceClassification.from_pretrained("SamLowe/roberta-base-go_emotions")
+emotion_pipeline = pipeline("text-classification", model=model, tokenizer=tokenizer)
+
+# Extended responses for different emotions
+responses = {
+    'joy': [
+        ("فَإِنَّ مَعَ الْعُسْرِ يُسْرًا", "Indeed, with every difficulty there is relief. (Quran 94:6)"),
+        ("وَإِنَّ اللَّهَ مَعَ الصَّابِرِينَ", "Allah will reward those who are patient. (Quran 2:153)"),
+        ("فَمَا جَزَاءُ الْإِحْسَانِ إِلَّا الْإِحْسَانُ", "Is the reward for good [anything] but good? (Quran 55:60)"),
+        ("إِنَّ الَّذِينَ آمَنُوا وَعَمِلُوا الصَّالِحَاتِ كَانَتْ لَهُمْ جَنَّاتُ النَّعِيمِ", "Indeed, those who have believed and done righteous deeds - for them are the Gardens of Pleasure. (Quran 31:8)"),
+        ("وَعِبَادُ الرَّحْمَنِ الَّذِينَ يَمْشُونَ عَلَى الْأَرْضِ هَوْنًا", "And the servants of the Most Merciful are those who walk upon the earth easily. (Quran 25:63)"),
+        ("إِنَّ رَحْمَتَ اللَّهِ قَرِيبٌۭ مِّنَ ٱلۡمُحْسِنِينَ", "Indeed, the mercy of Allah is near to the doers of good. (Quran 7:56)")
+    ],
+    'anger': [
+        ("وَقُولُوا لِلنَّاسِ حُسْنًا", "And speak to people kindly. (Quran 2:83)"),
+        ("وَلَا تَجْهَرُوا لَهُ بِالْقَوْلِ كَجَهْرِ بَعْضِكُمْ لِبَعْضٍ", "And do not speak to Him with harsh words, as you speak to one another. (Quran 49:2)"),
+        ("وَإِذَا خَاطَبَهُمُ الْجَاهِلُونَ قَالُوا سَلاَمًا", "And when the ignorant address them [harshly], they say [words of] peace. (Quran 25:63)"),
+        ("وَإِذَا رَءَا۟هُمُ ٱلۡجَٰهِلُونَ قَالُوا۟ إِنَّاۤ أُمَمٌۭ مِّنْ أُمَمٍۢ مِّن قَبْلِهِمْ", "And when they see the ignorant, they say, 'Indeed, we are a people who have been forgiven.' (Quran 56:75)")
+    ],
+    'sadness': [
+        ("لَا تُحْزِنْ إِنَّ اللَّهَ مَعَنَا", "Do not grieve, indeed Allah is with us. (Quran 9:40)"),
+        ("إِنَّ مَعَ الْعُسْرِ يُسْرًا", "Indeed, with every difficulty, there is ease. (Quran 94:6)"),
+        ("وَقَالُوا رَبُّنَا لَا تَجْعَلْنَا فِتْنَةً لِلْقَوْمِ الظَّالِمِينَ", "And they said, 'Our Lord, do not make us a trial for the wrongdoing people.' (Quran 10:85)"),
+        ("وَمَا أَصَابَكُم مِّن مَّصِيبَةٍ فَبِمَا كَسَبَتْ أَيْدِيكُمْ", "And whatever strikes you of disaster is because of what your hands have earned. (Quran 42:30)"),
+        ("وَلَا تَحْزَنُوا وَأَنْتُمُ الْأَعْلَوْنَ إ ن كُنتُم مُؤْمِنِينَ", "And do not grieve, for you will be the most superior if you are believers. (Quran 3:139)")
+    ]
+}
+
+def generate_response(detected_emotion):
+    """Generate a response based on the detected emotion."""
+    return random.choice(responses.get(detected_emotion, ["I'm here to listen."]))
+
+def load_user_emotions():
+    """Load user emotions data from a JSON file."""
+    try:
+        with open('user_emotions.json', 'r') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return {}
+
+def save_user_emotions(user_data):
+    """Save user emotions data to a JSON file."""
+    with open('user_emotions.json', 'w') as file:
+        json.dump(user_data, file)
+
+# Define synonyms for emotions
+emotion_synonyms = {
+    'joy': ['joy', 'happy', 'delight', 'pleasure', 'content'],
+    'anger': ['anger', 'mad', 'frustration', 'irritation', 'rage'],
+    'sadness': ['sad', 'sorrow', 'unhappy', 'depressed', 'down']
+}
+
+def get_emotion_from_synonyms(detected_emotion):
+    """Map detected emotion to a standard emotion using synonyms."""
+    for emotion, synonyms in emotion_synonyms.items():
+        if detected_emotion in synonyms:
+            return emotion
+    return 'sadness'  # Default to neutral if no match found
+
+def quick_chat():
+    """Handle the quick chat interaction."""
+    name = simpledialog.askstring("Quick Chat", "As-salamu alaykum! What's your name?")
+
+    if name:
+        messagebox.showinfo("Quick Chat", f"Nice to meet you, {name}!")
+        user_input = simpledialog.askstring("Quick Chat", f"How are you feeling today, {name}? (You can describe your feelings)")
+
+        if user_input:
+            emotion_result = emotion_pipeline(user_input)
+            detected_emotion = emotion_result[0]['label'].lower()  # Get the detected emotion label
+
+            # Map detected emotion to standard emotion
+            detected_emotion = get_emotion_from_synonyms(detected_emotion)
+
+            # Load previous emotions data
+            user_data = load_user_emotions()
+
+            # Track emotions count over time
+            user_data.setdefault('emotion_count', {})
+            user_data['emotion_count'][detected_emotion] = user_data['emotion_count'].get(detected_emotion, 0) + 1
+
+            # Save updated emotions data
+            save_user_emotions(user_data)
+
+            # Respond to the detected emotion
+            messagebox.showinfo("Emotion Detected", f"I can feel that you are feeling {detected_emotion}.")
+
+            # Get user explanation
+            explanation = simpledialog.askstring("Quick Chat", "Please explain what's making you feel that way:")
+
+            # POS tagging
+            doc = nlp(explanation)
+            pos_tags = [(token.text, token.pos_) for token in doc]
+            pos_tags_str = ', '.join([f"{word}({tag})" for word, tag in pos_tags])
+            messagebox.showinfo("POS Tags", f"Your explanation's POS tags: {pos_tags_str}")
+
+            # Initialize response variable
+            response = "I'm here to listen."  # Default response
+
+            # Select a random verse from the responses dataset based on the detected emotion
+            relevant_verses = responses.get(detected_emotion, [])
+            if relevant_verses:
+                selected_verse = random.choice(relevant_verses)
+                verse_text = selected_verse[0]  # Arabic verse
+                verse_translation = selected_verse[1]  # English translation
+                response = f"Here's a verse for you: {verse_text}\n{verse_translation}"
+
+            messagebox.showinfo("Response", response)
+        else:
+            messagebox.showwarning("No Input", "No input received. Please try again.")
+    else:
+        messagebox.showwarning("No Name", "No name provided. Please try again.")
+
+# Islamic Stories and Facts
+islamic_stories = [
+    "The Quran is the final revelation from Allah, revealed to Prophet Muhammad (PBUH) over 23 years, beginning in 610 CE and ending in 632 CE.",
+    "The first revelation to Prophet Muhammad (PBUH) came in the Cave of Hira, near Makkah, and was the command 'Iqra' (Read/Recite).",
+    "Shariah refers to Islamic law, derived from the Quran and Sunnah, which guides various aspects of a Muslim's life, including personal conduct, family relations, and social justice.",
+    "Patience (Sabr) is highly valued in Islam. Muslims are taught to be patient in times of hardship and adversity, as it leads to spiritual growth and rewards.",
+    "The Quran is considered a miracle in itself, with its linguistic perfection, scientific knowledge, and prophecies.",
+    "In Islam, Prophet Muhammad (PBUH) is considered the last of 124,000 prophets sent by Allah.",
+    "The Sira literature provides a detailed biographical account of Prophet Muhammad (PBUH).",
+    "The Quran contains verses that align with modern scientific discoveries.",
+    "In Islamic belief, there exists a divine record called 'Al-Lawh al-Mahfuz' (The Preserved Tablet).",
+    "Fitrah is the innate disposition or natural state that every human is born with.",
+    "In Shia Islam, there is a belief in a succession of 12 Imams, spiritual and temporal leaders.",
+    "During the Islamic Golden Age, Muslim scholars made revolutionary advancements in various fields.",
+    "The Battle of Yarmouk (636 CE) marked the beginning of the Islamic expansion into the Levant region.",
+    "Islam granted significant rights to women, with notable figures like Khadijah (RA) and Aisha (RA).",
+    "Ibn Sina's The Canon of Medicine was used as a reference text in European universities for centuries.",
+    "The Green Dome in Madinah symbolizes the verdant paradise in Islamic tradition.",
+    "The Quran describes the stages of human development from a 'clinging clot' to a 'lump of flesh'.",
+    "Barzakh is the state of existence after death but before the Day of Judgment.",
+    "The belief in Qadar, or Divine Decree, states that everything that happens in the universe is predestined by Allah.",
+    "The Quran’s preservation is believed to be a divine guarantee.",
+    "Jibreel (AS) is the archangel responsible for delivering Allah's revelations to the prophets.",
+    "The story of Dhu'l-Qarnayn remains one of the most intriguing in Islamic tradition.",
+    "The first four caliphs of Islam played foundational roles in the early expansion and consolidation of the Islamic empire.",
+    "During the Mi’raj, Prophet Muhammad (PBUH) ascended through the heavens.",
+    "The companions (Sahabah) of the Prophet Muhammad (PBUH) continued to spread Islam across the globe.",
+    "Ijma' refers to the consensus of Islamic scholars on religious matters.",
+    "Surah Al-Baqarah (The Cow) includes guidance on matters of law, morality, and worship.",
+    "The Mahdi is believed to be the prophesied redeemer who will restore righteousness and justice.",
+    "The Dajjal, or the Antichrist, is a figure in Islamic eschatology who will emerge in the end times.",
+    "Islam presents a unique view of creation, emphasizing that Allah created the universe in six days.",
+    "Paradise is a place of eternal bliss and contentment, while Hell is a place of eternal punishment and regret.",
+    "Ahl al-Bayt refers to the family of Prophet Muhammad (PBUH), who are highly revered in both Sunni and Shia traditions."
+]
+
+# Islamic Test Questions
+islamic_test_questions = [
+    {
+        "question": "Who was the first prophet in Islam?",
+        "options": ["A) Prophet Adam (AS)", "B) Prophet Noah (AS)", "C) Prophet Ibrahim (AS)", "D) Prophet Muhammad (PBUH)"],
+        "answer": "A"
+    },
+    {
+        "question": "Which Surah of the Quran is known as the heart of the Quran?",
+        "options": ["A) Surah Al-Fatiha", "B) Surah Al-Baqarah", "C) Surah Ya-Sin", "D) Surah Al-Ikhlas"],
+        "answer": "B"
+    },
+    {
+        "question": "What is the first month of the Islamic calendar?",
+        "options": ["A) Ramadan", "B) Muharram", "C) Shawwal", "D) Dhul-Hijjah"],
+        "answer": "B"
+    },
+    {
+        "question": "Which angel is responsible for delivering Allah's messages to the prophets?",
+        "options": ["A) Jibreel (Gabriel)", "B) Mika'il (Michael)", "C) Israfil (Raphael)", "D) Azrael"],
+        "answer": "A"
+    },
+    {
+        "question": "In which city was Prophet Muhammad (PBUH) born?",
+        "options": ["A) Madinah", "B) Makkah", "C) Ta'if", "D) Jerusalem"],
+        "answer": "B"
+    },
+    {
+        "question": "Which battle is known as the first major battle in Islam?",
+        "options": ["A) Battle of Uhud", "B) Battle of Badr", "C) Battle of Khandaq", "D) Battle of Tabuk"],
+        "answer": "B"
+    },
+    {
+        "question": "Which of the following is not a pillar of Islam?",
+        "options": ["A) Shahada (Faith)", "B) Salah (Prayer)", "C) Sawm (Fasting)", "D) Hajj (Jihad)"],
+        "answer": "D"
+    },
+    {
+        "question": "Who was the first caliph of Islam after Prophet Muhammad (PBUH)?",
+        "options": ["A) Umar ibn al-Khattab", "B) Ali ibn Abi Talib", "C) Abu Bakr al-Siddiq", "D) Uthman ibn Affan"],
+        "answer": "C"
+    },
+    {
+        "question": "What is the name of the book that was revealed to Prophet Musa (Moses)?",
+        "options": ["A) Torah", "B) Quran", "C) Psalms (Zabur)", "D) Gospel (Injeel)"],
+        "answer": "A"
+    },
+    {
+        "question": "Which Prophet was swallowed by a big fish as a test from Allah?",
+        "options": ["A) Prophet Yunus (AS)", "B) Prophet Dawud (AS)", "C) Prophet Ibrahim (AS)", "D) Prophet Musa (AS)"],
+        "answer": "A"
+    },
+    {
+        "question": "Which Surah is named after a woman in the Quran?",
+        "options": ["A) Surah Maryam", "B) Surah Aisha", "C) Surah Fatimah", "D) Surah Khadijah"],
+        "answer": "A"
+    },
+    {
+        "question": "Which month of the Islamic calendar is the month of fasting (Sawm)?",
+        "options": ["A) Rajab", "B) Ramadan", "C) Shawwal", "D) Dhul-Hijjah"],
+        "answer": "B"
+    },
+    {
+        "question": "How many Surahs are there in the Quran?",
+        "options": ["A) 114", "B) 120", "C) 100", "D) 150"],
+        "answer": "A"
+    },
+    {
+        "question": "What is the name of the mosque that Prophet Muhammad (PBUH) migrated to after leaving Makkah?",
+        "options": ["A) Al-Aqsa Mosque", "B) Al-Nabawi Mosque", "C) Al-Haram Mosque", "D) Quba Mosque"],
+        "answer": "B"
+    },
+    {
+        "question": "Which prophet is known for his wisdom and wrote many proverbs in the Bible and Quran?",
+        "options": ["A) Prophet Ibrahim (AS)", "B) Prophet Daw ood (AS)", "C) Prophet Sulaiman (AS)", "D) Prophet Ya'qub (AS)"],
+        "answer": "C"
+    },
+    {
+        "question": "Who is the only female prophet mentioned in the Quran?",
+        "options": ["A) Maryam (Mary)", "B) Aisha (RA)", "C) Fatimah (RA)", "D) Asiya (RA)"],
+        "answer": "A"
+    },
+    {
+        "question": "What is the Arabic word for God in Islam?",
+        "options": ["A) Allah", "B) Elah", "C) Yahweh", "D) Khuda"],
+        "answer": "A"
+    },
+    {
+        "question": "Which battle was fought in the year 625 CE?",
+        "options": ["A) Battle of Badr", "B) Battle of Uhud", "C) Battle of Khandaq", "D) Battle of Tabuk"],
+        "answer": "B"
+    },
+    {
+        "question": "Which is the final and most important book revealed to humanity in Islam?",
+        "options": ["A) Quran", "B) Torah", "C) Psalms", "D) Gospel"],
+        "answer": "A"
+    },
+    {
+        "question": "In the Quran, how many times is the word 'salah' (prayer) mentioned?",
+        "options": ["A) 5", "B) 8", "C) 20", "D) 40"],
+        "answer": "B"
+    },
+    {
+        "question": "Which Sahabi (companion of the Prophet) is known for being the first to accept Islam after the Prophet Muhammad (PBUH)?",
+        "options": ["A) Abu Bakr al-Siddiq", "B) Ali ibn Abi Talib", "C) Zayd ibn Harithah", "D) Uthman ibn Affan"],
+        "answer": "A"
+    },
+    {
+        "question": "Which Surah in the Quran is known as the 'Surah of Light'?",
+        "options": ["A) Surah Al-Ahzab", "B) Surah An-Nur", "C) Surah Al-Baqarah", "D) Surah Al-Mulk"],
+        "answer": "B"
+    },
+    {
+        "question": "Which Prophet is referred to as 'Khalilullah' (The Friend of Allah)?",
+        "options": ["A) Prophet Nuh (Noah)", "B) Prophet Ibrahim (Abraham)", "C) Prophet Musa (Moses)", "D) Prophet Isa (Jesus)"],
+        "answer": "B"
+    },
+    {
+        "question": "In which year did the Battle of Yarmouk take place?",
+        "options": ["A) 636 CE", "B) 630 CE", "C) 570 CE", "D) 661 CE"],
+        "answer": "A"
+    },
+    {
+        "question": "Which Surah is the longest Surah in the Quran?",
+        "options": ["A) Surah Al-A'raf", "B) Surah Al-Baqarah", "C) Surah Al-Imran", "D) Surah Al-Tawbah"],
+        "answer": "B"
+    },
+    {
+        "question": "Who was the first woman to embrace Islam?",
+        "options": ["A) Aisha (RA)", "B) Khadijah (RA)", "C) Fatimah (RA)", "D) Zaynab (RA)"],
+        "answer": "B"
+    },
+    {
+        "question": "Who was the first person to be martyred in Islam?",
+        "options": ["A) Sumayyah bint Khayyat (RA)", "B) Uthman ibn Affan (RA)", "C) Ali ibn Abi Talib (RA)", "D) Hamzah ibn Abdul Muttalib (RA)"],
+        "answer": "A"
+    },
+    {
+        "question": "Which Surah contains the verse of Ayat al-Kursi?",
+        "options": ["A) Surah Al-Baqarah", "B) Surah Al-Imran", "C) Surah Al-Mulk", "D) Surah An-Nisa"],
+        "answer": "A"
+    },
+    {
+        "question": "What is the name of the tree under which Prophet Muhammad (PBUH) made the Treaty of Hudaybiyyah with the Quraysh?",
+        "options": ["A) Tree of Al-Zaitun", "B) Tree of Al-Gharqad", "C) Tree of Al-Ridwan", "D) Tree of Al-Khawarizmi"],
+        "answer": "C"
+    },
+    {
+        "question": "What was the name of Prophet Muhammad’s (PBUH) grandfather?",
+        "options": ["A) Abu Talib", "B) Abdullah", "C) Abdul Muttalib", "D) Qusayy"],
+        "answer": "C"
+    },
+    {
+        "question": "What is the name of the angel who blows the trumpet to signal the Day of Judgment?",
+        "options": ["A) Mika'il (Michael)", "B) Jibreel (Gabriel)", "C) Israfil (Raphael)", "D) Malik"],
+        "answer": "C"
+    },
+    {
+        "question": "Which of the following is the name of the first treaty that was signed between the Prophet Muhammad (PBUH) and the people of Makkah?",
+        "options": ["A) Treaty of Hudaybiyyah", "B) Treaty of Ta'if", "C) Treaty of Hudaibiya", "D) Treaty of Aqabah"],
+        "answer": "A"
+    },
+    {
+        "question": "What is the name of the first mosque ever built in Islam?",
+        "options": ["A) Masjid Al-Aqsa", "B) Masjid Al-Nabawi", "C) Masjid Quba", "D) Masjid Al-Haram"],
+        "answer": "C"
+    },
+    {
+        "question": "Which Surah of the Quran is named after a Companion of the Prophet Muhammad (PBUH)?",
+        "options": ["A) Surah Al-Jumu'ah", "B) Surah Al-Buruj", "C) Surah At-Tawbah", "D) Surah Al-Ahzab"],
+        "answer": "A"
+    },
+    {
+        "question": "What is the name of the famous Jewish tribe that was expelled from Madinah by Prophet Muhammad (PBUH) after breaking treaties?",
+        "options": ["A) Banu Qurayza", "B) Banu Hashim", "C) Banu Israel", "D) Banu Umayyah"],
+        "answer": "A"
+    },
+    {
+        "question": "How many times is the word 'Islam' mentioned in the Quran?",
+        "options": ["A) 3", "B) 7", "C) 20", "D) 5"],
+        "answer": "B"
+    },
+    {
+        "question": "What is the Arabic word for the 'striving in the way of Allah' often interpreted as 'Jihad'?",
+        "options": ["A) Shahada", "B) Ibadah", "C) Fard", "D) Mujahada"],
+        "answer": "D"
+    },
+    {
+        "question": "Which Caliph was known as 'Al-Farooq,' meaning 'The One Who Distinguishes Between Right and Wrong'?",
+        "options": ["A) Umar ibn al-Khattab", "B) Abu Bakr al-Siddiq", "C) Ali ibn Abi Talib", "D) Uthman ibn Affan"],
+        "answer": "A"
+    },
+    {
+        "question": "In the Quran, which Prophet is mentioned the most times?",
+        "options": ["A) Prophet Ibrahim (AS)", "B) Prophet Musa (AS)", "C) Prophet Muhammad (PBUH)", "D) Prophet Isa (AS)"],
+        "answer": "B"
+    },
+    {
+        "question": "What was the name of the well where Prophet Ibrahim (AS) left his wife Hajar and son Ismail (AS)?",
+        "options": ["A) Zamzam", "B) Quba", "C) Al-Kawthar", "D) Badr"],
+        "answer": "A"
+    }
+]
+
+def islamic_test():
+    """Handle Islamic test interactions."""
+    selected_questions = random.sample(islamic_test_questions, 10)  # Randomly select 10 questions
+    score = 0
+    for question in selected_questions:
+        user_answer = simpledialog.askstring("Islamic Test", question["question"] + "\n" + "\n".join(
+            question["options"]) + "\n(Type 'exit' to quit the quiz)")
+        if user_answer:
+            if user_answer.strip().lower() == 'exit':
+                messagebox.showinfo("Exit", "You have exited the quiz.")
+                return
+            elif user_answer.strip().upper() == question["answer"]:
+                score += 1
+                messagebox.showinfo("Result", "Correct!")
+            else:
+                messagebox.showinfo("Result", "Incorrect! The correct answer is: " + question["answer"])
+    messagebox.showinfo("Final Score", f"Your final score is: {score}/10")
+
+def reflective_questionnaire():
+    """Handle reflective questionnaire interactions with options."""
+    scores = {
+        "Faith and Worship": 0,
+        "Character Building": 0,
+        "Knowledge and Charity": 0
+    }
+
+    reflective_questions_with_options = [
+        {
+            "question": "How often do you perform your daily prayers (Salah)?",
+            "options": ["A) Always", "B) Sometimes", "C) Rarely"]
+        },
+        {
+            "question": "How often do you make Du'a (supplication) to Allah throughout the day?",
+            "options": ["A) Always", "B) Sometimes", "C) Rarely"]
+        },
+        {
+            "question": "How much time do you spend remembering Allah (Dhikr) daily?",
+            "options": ["A) A lot", "B) Some", "C) Very little"]
+        },
+        {
+            "question": "How often do you strive to follow the teachings of Prophet Muhammad (PBUH) in your daily life?",
+            "options": ["A) Always", "B) Sometimes", "C) Rarely"]
+        },
+        {
+            "question": "How often do you engage in acts of charity (Sadaqah)?",
+            "options": ["A) Always", "B) Sometimes", "C) Rarely"]
+        },
+        {
+            "question": "How often do you seek knowledge about Islam (e.g., reading books, listening to lectures)?",
+            "options": ["A) Always", "B) Sometimes", "C) Rarely"]
+        }
+    ]
+
+    for question in reflective_questions_with_options:
+        options_str = "\n".join(question["options"])
+        user_answer = simpledialog.askstring("Reflective Questionnaire",
+                                             question["question"] + "\n" + options_str + "\n(Type 'exit' to quit)")
+
+        if user_answer:
+            if user_answer.strip().lower() == 'exit':
+                messagebox.showinfo("Exit", "You have exited the reflective questionnaire.")
+                return
+            elif user_answer.strip().upper() == "A":
+                scores["Faith and Worship"] += 1
+            elif user_answer.strip().upper() == "B":
+                if question["question"] in [
+                    "How often do you strive to follow the teachings of Prophet Muhammad (PBUH) in your daily life?",
+                    "How often do you engage in acts of charity (Sadaqah)?"]:
+                    scores["Character Building"] += 1
+            elif user_answer.strip().upper() == "C":
+                if question["question"] in [
+                    "How often do you seek knowledge about Islam (e.g., reading books, listening to lectures)?"]:
+                    scores["Knowledge and Charity"] += 1
+
+    generate_pie_chart(scores)
+    provide_feedback(scores)
+
+def generate_pie_chart(scores):
+    """Generate a pie chart based on the scores."""
+    labels = scores.keys()
+    sizes = scores.values()
+    plt.figure(figsize=(8, 6))
+    plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140)
+    plt.axis('equal')  # Equal aspect ratio ensures that pie chart is a circle.
+    plt.title("Reflective Questionnaire Scores")
+    plt.show()
+
+def provide_feedback(scores):
+    """Provide feedback based on scores."""
+    feedback = ""
+    for category, score in scores.items():
+        feedback += f"{category}: {score}\n"
+    messagebox.showinfo("Feedback", feedback)
+
+    def quick_chat():
+        """Handle the quick chat interaction."""
+        name = simpledialog.askstring("Quick Chat", "As-salamu alaykum! What's your name?")
+
+        if name:
+            messagebox.showinfo("Quick Chat", f"Nice to meet you, {name}!")
+            user_input = simpledialog.askstring("Quick Chat",
+                                                f"How are you feeling today, {name}? (You can describe your feelings)")
+
+            if user_input:
+                emotion_result = emotion_pipeline(user_input)
+                detected_emotion = emotion_result[0]['label'].lower()  # Get the detected emotion label
+
+                # Load previous emotions data
+                user_data = load_user_emotions()
+
+                # Track emotions count over time
+                user_data.setdefault('emotion_count', {})
+                user_data['emotion_count'][detected_emotion] = user_data['emotion_count'].get(detected_emotion, 0) + 1
+
+                # Save updated emotions data
+                save_user_emotions(user_data)
+
+                # Respond to the detected emotion
+                messagebox.showinfo("Emotion Detected", f"I can feel that you are feeling {detected_emotion}.")
+
+                # Get user explanation
+                explanation = simpledialog.askstring("Quick Chat", "Please explain what's making you feel that way:")
+
+                # POS tagging
+                doc = nlp(explanation)
+                pos_tags = [(token.text, token.pos_) for token in doc]
+                pos_tags_str = ', '.join([f"{word}({tag})" for word, tag in pos_tags])
+                messagebox.showinfo("POS Tags", f"Your explanation's POS tags: {pos_tags_str}")
+
+                # Select a random verse from the responses dataset based on the detected emotion
+                relevant_verses = responses.get(detected_emotion, [])
+                if relevant_verses:
+                    selected_verse = random.choice(relevant_verses)
+                    verse_text = selected_verse[0]  # Arabic verse
+                    verse_translation = selected_verse[1]  # English translation
+                    response = f"{generate_response(detected_emotion)}\nHere's a verse for you: {verse_text}\n{verse_translation}"
+                else:
+                    response = generate_response(detected_emotion)
+
+                messagebox.showinfo("Response", response)
+            else:
+                messagebox.showwarning("No Input", "No input received. Please try again.")
+        else:
+            messagebox.showwarning("No Name", "No name provided. Please try again.")
+
+
+# Initialize the main application window
+root = tk.Tk()
+root.title("Heart-to-Heart AI")
+root.geometry("800x600")
+root.configure(bg='light pink')
+
+# Create a custom font for the title
+title_font = tkfont.Font(family="Courier", size=42, weight="bold")
+
+# Create a label for the title
+title_label = tk.Label(root, text="Heart-to-Heart AI", font=title_font, bg='light pink', fg='black')
+title_label.grid(row=0, column=0, columnspan=2, pady=20)  # Center the title
+
+# Create buttons for each module
+btn_quick_chat = tk.Button(root, text="How’s Your Heart Today?", command=quick_chat, bg='light coral', fg='black', relief='raised', width=40, height=5)
+btn_quick_chat.grid(row=1, column=0, padx=60, pady=60, sticky='ew')  # First button
+
+btn_islamic_test = tk.Button(root, text="Islamic History and Knowledge Test", command=islamic_test, bg='coral1', fg='black', relief='raised', width=40, height=5)
+btn_islamic_test.grid(row=1, column=1, padx=60, pady=60, sticky='ew')  # Second button
+
+btn_islamic_facts = tk.Button(root, text="Islamic Insights", command=lambda: messagebox.showinfo("Islamic Insights", random.choice(islamic_stories)), bg='coral2', fg='black', relief='raised', width=40, height=5)
+btn_islamic_facts.grid(row=2, column=0, padx=60, pady=60, sticky='ew')  # Third button
+
+btn_reflective_questionnaire = tk.Button(root, text="Soulful Reflections", command=reflective_questionnaire, bg='coral3', fg='black', relief='raised', width=40, height=5)
+btn_reflective_questionnaire.grid(row=2, column=1, padx=60, pady=60, sticky='ew')  # Fourth button
+
+# Configure grid weights to allow buttons to expand
+root.grid_columnconfigure(0, weight=1)
+root.grid_columnconfigure(1, weight=1)
+
+
+# Start the Tkinter event loop
+if __name__ == '__main__':
+    root.mainloop()
