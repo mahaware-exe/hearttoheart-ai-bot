@@ -1,0 +1,14 @@
+matplotlib — for generating the pie chart.
+
+tk / tkinter — GUI library 
+
+spacy — for the NLP pipeline and POS tagging (nlp variable).
+
+transformers — used for the emotion_pipeline (Hugging Face transformers pipeline).
+
+torch — needed by transformers for model inference.
+
+
+
+If you are using a specific spacy model like (en_core_web_sm), then after installing spacy:
+python -m spacy download en_core_web_sm
